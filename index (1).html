@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Subset sum, step by step</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#e6edf1;--panel:#f6f9fa;--ink:#14222e;--mute:#5d6e7b;--line:#c5d1d9;--in:#1d7a5a;--out:#aab7c1;--cut:#c2410c;--cur:#2457c5;--win:#b8860b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a22;--panel:#16252f;--ink:#e4edf2;--mute:#8fa2b0;--line:#2a3d4a;--in:#3fc79a;--out:#4a5d6b;--cut:#f08a54;--cur:#7aa2ff;--win:#e8be4a}}
+:root[data-theme="dark"]{--bg:#0f1a22;--panel:#16252f;--ink:#e4edf2;--mute:#8fa2b0;--line:#2a3d4a;--in:#3fc79a;--out:#4a5d6b;--cut:#f08a54;--cur:#7aa2ff;--win:#e8be4a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{max-width:860px;margin:0 auto;padding:28px 18px 56px}
+h1{font-size:clamp(2rem,6vw,3.4rem);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:0 0 10px}
+.lede{color:var(--mute);max-width:60ch;margin:0 0 24px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--mute)}
+input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+input[type=text]{width:min(100%,260px)}input[type=number]{width:90px}
+button{font:inherit;font-weight:600;color:var(--bg);background:var(--ink);border:0;border-radius:6px;padding:9px 16px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.4;cursor:default}
+:focus-visible{outline:3px solid var(--cur);outline-offset:2px}
+.tiles{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 14px}
+.tile{min-width:56px;padding:12px 10px;text-align:center;font-weight:800;font-size:1.3rem;border-radius:8px;border:2px solid var(--line);background:var(--bg);transition:background .15s,border-color .15s,color .15s,transform .15s}
+.tile small{display:block;font-weight:400;font-size:.7rem;color:inherit;opacity:.8}
+.tile.in{background:var(--in);border-color:var(--in);color:var(--bg)}
+.tile.out{border-style:dashed;border-color:var(--out);color:var(--out);text-decoration:line-through}
+.tile.cur{border-color:var(--cur);transform:translateY(-4px)}
+.meter{position:relative;height:30px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--in);transition:width .15s,background .15s}
+.fill.over{background:var(--cut)}.fill.hit{background:var(--win)}
+.tgt{position:absolute;top:0;bottom:0;width:3px;background:var(--ink)}
+.meta{display:flex;justify-content:space-between;font-size:.9rem;color:var(--mute);margin-top:6px}
+#status{font-weight:600;min-height:3em;margin:12px 0 0}
+#status.cut{color:var(--cut)}#status.win{color:var(--win)}
+h2{font-size:1.05rem;margin:0 0 8px}
+#sols{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+#sols li{background:var(--win);color:var(--bg);font-weight:600;padding:5px 11px;border-radius:999px}
+.empty{color:var(--mute)}
+#log{position:relative;max-height:260px;overflow:auto;font-size:.88rem;margin:0;padding-left:0;list-style:none}
+#log li{padding:4px 6px;border-bottom:1px solid var(--line);color:var(--mute);cursor:pointer}
+#log li:hover{background:var(--bg)}
+#log li.done{color:var(--ink)}
+#log li.now{color:var(--ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.85rem;color:var(--mute)}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+pre{margin:0;font-size:.85rem;overflow-x:auto;line-height:1.6}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>Subset sum, step by step</h1>
+<p class="lede">Can some of these numbers add up to the target? Backtracking tries each number in or out, and abandons a branch the moment it can’t work.</p>
+
+<div class="panel">
+  <div class="row">
+    <label>Numbers (positive, comma separated)<input id="nums" type="text" value="3, 34, 4, 12, 5, 2"></label>
+    <label>Target<input id="target" type="number" min="1" value="9"></label>
+    <button id="load">Load</button>
+  </div>
+  <p id="err" class="empty" role="alert" style="margin:8px 0 0"></p>
+</div>
+
+<div class="panel">
+  <div class="tiles" id="tiles" aria-live="off"></div>
+  <div class="meter"><div class="fill" id="fill"></div><div class="tgt" id="tgt"></div></div>
+  <div class="meta"><span id="sumTxt">Sum 0</span><span id="tgtTxt">Target 9</span></div>
+  <p id="status" aria-live="polite"></p>
+  <div class="row" style="margin-top:10px">
+    <button id="play">Play</button>
+    <button id="step" class="ghost">Step</button>
+    <button id="reset" class="ghost">Reset</button>
+    <label>Speed<input id="speed" type="range" min="1" max="10" value="5"></label>
+    <label style="flex:1;min-width:160px">Scrub through steps<input id="scrub" type="range" min="-1" max="0" value="-1"></label>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Subsets found</h2>
+  <ul id="sols"><li class="empty" style="background:none;color:var(--mute);padding:0">None yet.</li></ul>
+</div>
+
+<div class="panel">
+  <h2>Steps (click any step to jump to it)</h2>
+  <ol id="log"></ol>
+</div>
+
+<div class="panel">
+  <div class="legend">
+    <span><i class="sw" style="background:var(--in)"></i>taken</span>
+    <span><i class="sw" style="border:2px dashed var(--out)"></i>skipped</span>
+    <span><i class="sw" style="border:2px solid var(--cur)"></i>deciding now</span>
+    <span><i class="sw" style="background:var(--cut)"></i>over target, pruned</span>
+  </div>
+  <h2 style="margin-top:14px">The idea</h2>
+<pre>solve(i, sum):
+  if sum == target     -> record subset
+  if sum &gt; target      -> stop (too big)
+  if sum + rest &lt; target -> stop (can't reach)
+  take nums[i];  solve(i+1, sum + nums[i])
+  skip nums[i];  solve(i+1, sum)</pre>
+</div>
+</main>
+
+<script>
+let nums=[],target=0,events=[],pos=-1,timer=null;
+const $=id=>document.getElementById(id);
+
+function build(){
+  const n=nums.length,sel=Array(n).fill(0),suf=Array(n+1).fill(0);
+  for(let i=n-1;i>=0;i--)suf[i]=suf[i+1]+nums[i];
+  const ev=[];
+  const push=(kind,i,sum,msg,extra)=>ev.push(Object.assign({kind,i,sum,msg,sel:sel.slice()},extra||{}));
+  const picked=()=>nums.filter((_,k)=>sel[k]===1);
+  function bt(i,sum){
+    if(ev.length>4000)return;
+    if(sum===target){push('win',i,sum,'Sum is '+sum+'. Found subset {'+picked().join(', ')+'}.',{sol:picked()});return}
+    if(sum>target){push('cut',i,sum,'Sum '+sum+' is over '+target+'. Backtrack.');return}
+    if(i===n){push('cut',i,sum,'No numbers left and sum is '+sum+'. Backtrack.');return}
+    if(sum+suf[i]<target){push('cut',i,sum,'Even taking everything left gives '+(sum+suf[i])+', short of '+target+'. Prune.');return}
+    sel[i]=1;push('take',i,sum+nums[i],'Take '+nums[i]+'. Sum becomes '+(sum+nums[i])+'.');
+    bt(i+1,sum+nums[i]);
+    sel[i]=2;push('skip',i,sum,'Skip '+nums[i]+'. Sum stays '+sum+'.');
+    bt(i+1,sum);
+    sel[i]=0;
+  }
+  push('start',-1,0,'Start with an empty subset.');
+  bt(0,0);
+  push('end',-1,0,ev.filter(e=>e.sol).length?'Search complete: '+ev.filter(e=>e.sol).length+' subset(s) found.':'Search complete: no subset adds up to '+target+'.');
+  return ev;
+}
+
+function load(){
+  stop();
+  const parts=$('nums').value.split(/[\s,]+/).filter(Boolean).map(Number);
+  const t=Number($('target').value);
+  const err=$('err');
+  if(!parts.length||parts.some(x=>!Number.isInteger(x)||x<=0)){err.textContent='Enter positive whole numbers, like 3, 34, 4.';return}
+  if(parts.length>12){err.textContent='Use 12 numbers or fewer so the steps stay readable.';return}
+  if(!Number.isInteger(t)||t<=0){err.textContent='Target must be a positive whole number.';return}
+  err.textContent='';
+  nums=parts.slice().sort((a,b)=>a-b);target=t;
+  events=build();pos=-1;
+  $('tgtTxt').textContent='Target '+target;
+  const log=$('log');
+  log.innerHTML=events.map((x,k)=>'<li tabindex="0" role="button" data-k="'+k+'">'+x.msg+'</li>').join('');
+  $('scrub').max=events.length-1;
+  render();
+}
+
+function render(){
+  const e=events[pos]||{sel:Array(nums.length).fill(0),sum:0,i:-1,kind:'start',msg:'Press Play or Step to begin. Numbers are sorted smallest first.'};
+  $('tiles').innerHTML=nums.map((v,k)=>'<div class="tile '+(e.sel[k]===1?'in':e.sel[k]===2?'out':'')+(k===e.i&&e.kind!=='cut'&&e.kind!=='win'?' cur':'')+'">'+v+'<small>#'+(k+1)+'</small></div>').join('');
+  const max=Math.max(target*1.5,e.sum,1);
+  const f=$('fill');f.style.width=Math.min(100,e.sum/max*100)+'%';
+  f.className='fill'+(e.sum>target?' over':e.sum===target&&e.kind==='win'?' hit':'');
+  $('tgt').style.left='calc('+(target/max*100)+'% - 1px)';
+  $('sumTxt').textContent='Sum '+e.sum;
+  const s=$('status');s.textContent=e.msg;s.className=e.kind==='cut'?'cut':e.kind==='win'?'win':'';
+  const sols=events.slice(0,pos+1).filter(x=>x.sol);
+  $('sols').innerHTML=sols.length?sols.map(x=>'<li>{'+x.sol.join(' + ')+'} = '+target+'</li>').join(''):'<li class="empty" style="background:none;color:var(--mute);padding:0">None yet.</li>';
+  const log=$('log');
+  [...log.children].forEach((li,k)=>li.className=k===pos?'now':k<pos?'done':'');
+  const cur=log.children[pos];if(cur)log.scrollTop=Math.max(0,cur.offsetTop-90);
+  $('scrub').value=pos;
+  $('step').disabled=pos>=events.length-1;
+  $('play').textContent=timer?'Pause':(pos>=events.length-1?'Replay':'Play');
+}
+
+function next(){if(pos<events.length-1){pos++;render()}if(pos>=events.length-1)stop()}
+function stop(){if(timer){clearInterval(timer);timer=null}if(events.length)$('play').textContent=pos>=events.length-1?'Replay':'Play'}
+function delay(){return 1100-$('speed').value*100}
+function play(){
+  if(timer){stop();return}
+  if(pos>=events.length-1){pos=-1}
+  timer=setInterval(next,delay());render();
+}
+$('play').onclick=play;
+$('step').onclick=()=>{stop();next()};
+$('reset').onclick=()=>{stop();pos=-1;render()};
+$('load').onclick=load;
+$('speed').oninput=()=>{if(timer){clearInterval(timer);timer=setInterval(next,delay())}};
+$('target').addEventListener('keydown',e=>{if(e.key==='Enter')load()});
+$('nums').addEventListener('keydown',e=>{if(e.key==='Enter')load()});
+$('scrub').oninput=e=>{stop();pos=Number(e.target.value);render()};
+const jump=e=>{const li=e.target.closest('li[data-k]');if(li){stop();pos=Number(li.dataset.k);render()}};
+$('log').onclick=jump;
+$('log').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();jump(e)}});
+load();
+</script>
+</body>
+</html>
